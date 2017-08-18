@@ -897,17 +897,25 @@ bool GazeboRosApiPlugin::getModelProperties(gazebo_msgs::GetModelProperties::Req
   return true;
 }
 
-bool GazeboRosApiPlugin::getWorldProperties(gazebo_msgs::GetWorldProperties::Request &req,
-                                            gazebo_msgs::GetWorldProperties::Response &res)
+bool GazeboRosApiPlugin::getWorldProperties(
+  gazebo_msgs::GetWorldProperties::Request &req,
+  gazebo_msgs::GetWorldProperties::Response &res)
 {
   res.sim_time = world_->GetSimTime().Double();
   res.model_names.clear();
-  for (unsigned int i = 0; i < world_->GetModelCount(); i ++)
-    res.model_names.push_back(world_->GetModel(i)->GetName());
-  gzerr << "disablign rendering has not been implemented, rendering is always enabled\n";
-  res.rendering_enabled = true; //world->GetRenderEngineEnabled();
+  for (unsigned int i = 0; i < this->world_->GetModelCount(); ++i)
+  {
+    res.model_names.push_back(this->world_->GetModel(i)->GetName());
+  }
+  // TODO: disabling rendering has not been implemented, rendering is always
+  // enabled. Change to something like this->world->GetRenderEngineEnabled()
+  // in the future
+  res.rendering_enabled = true;
+
   res.success = true;
-  res.status_message = "GetWorldProperties: got properties";
+  res.status_message = "GetWorldProperties: got properties. Note: disabling " +
+                       "rendering has not been implemented, rendering is " +
+                       "always enabled";
   return true;
 }
 
@@ -1464,24 +1472,44 @@ bool GazeboRosApiPlugin::setModelConfiguration(gazebo_msgs::SetModelConfiguratio
 
   if (req.joint_names.size() == req.joint_positions.size())
   {
+    bool names_are_valid = true;
     std::map<std::string, double> joint_position_map;
     for (unsigned int i = 0; i < req.joint_names.size(); i++)
     {
-      joint_position_map[req.joint_names[i]] = req.joint_positions[i];
+      if (gazebo_model->GetJoint(req.joint_names[i]) == NULL)
+      {
+        res.status_message += "Joint " + req.joint_names[i] + " does not exist on the model.\n";
+        names_are_valid = false;
+      }
+      else
+      {
+        joint_position_map[req.joint_names[i]] = req.joint_positions[i];
+      }
     }
+    if (names_are_valid)
+    {
+      // make the service call to pause gazebo
+      bool is_paused = world_->IsPaused();
+      if (!is_paused)
+      {
+        world_->SetPaused(true);
+      }
 
-    // make the service call to pause gazebo
-    bool is_paused = world_->IsPaused();
-    if (!is_paused) world_->SetPaused(true);
+      gazebo_model->SetJointPositions(joint_position_map);
 
-    gazebo_model->SetJointPositions(joint_position_map);
+      // resume paused state before this call
+      world_->SetPaused(is_paused);
 
-    // resume paused state before this call
-    world_->SetPaused(is_paused);
-
-    res.success = true;
-    res.status_message = "SetModelConfiguration: success";
-    return true;
+      res.success = true;
+      res.status_message = "SetModelConfiguration: success";
+      return true;
+    }
+    else
+    {
+      res.success = true;
+      res.status_message = "Some joints were not found:\n" + res.status_message;
+      return true;
+    }
   }
   else
   {
