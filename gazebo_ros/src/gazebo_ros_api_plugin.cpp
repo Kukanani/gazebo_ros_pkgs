@@ -913,8 +913,8 @@ bool GazeboRosApiPlugin::getWorldProperties(
   res.rendering_enabled = true;
 
   res.success = true;
-  res.status_message = "GetWorldProperties: got properties. Note: disabling " +
-                       "rendering has not been implemented, rendering is " +
+  res.status_message = "GetWorldProperties: got properties. Note: disabling " \
+                       "rendering has not been implemented, rendering is " \
                        "always enabled";
   return true;
 }
