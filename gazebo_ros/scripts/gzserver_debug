@@ -1,0 +1,3 @@
+#!/bin/bash
+
+xterm -e ". `pkg-config --variable=prefix gazebo`/share/gazebo/setup.sh && gdb -ex 'break Joint.cc:727' --args gzserver --verbose -u worlds/empty.world -s `catkin_find --first-only libgazebo_ros_api_plugin.so` -s `catkin_find --first-only libgazebo_ros_paths_plugin.so`"
