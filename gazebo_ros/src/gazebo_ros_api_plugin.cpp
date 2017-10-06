@@ -708,7 +708,7 @@ bool GazeboRosApiPlugin::deleteModel(gazebo_msgs::DeleteModel::Request &req,
   gazebo::physics::ModelPtr model = world_->GetModel(req.model_name);
   if (!model)
   {
-    ROS_ERROR("DeleteModel: model [%s] does not exist",req.model_name.c_str());
+    ROS_WARN("DeleteModel: model [%s] does not exist",req.model_name.c_str());
     res.success = false;
     res.status_message = "DeleteModel: model does not exist";
     return true;
@@ -737,23 +737,27 @@ bool GazeboRosApiPlugin::deleteModel(gazebo_msgs::DeleteModel::Request &req,
   gazebo::msgs::Request *msg = gazebo::msgs::CreateRequest("entity_delete",req.model_name);
   request_pub_->Publish(*msg,true);
 
-  ros::Duration model_spawn_timeout(60.0);
-  ros::Time timeout = ros::Time::now() + model_spawn_timeout;
   // wait and verify that model is deleted
+  float sleeptime = 0.0;
+  bool tried_again = false;
   while (true)
   {
-    if (ros::Time::now() > timeout)
+    if (sleeptime > 5.0 && !tried_again)
+    {
+        ROS_DEBUG("trying to delete again");
+        tried_again = true;
+        request_pub_->Publish(*msg,true);
+    }
+    if (sleeptime > 10.0)
     {
       res.success = false;
       res.status_message = std::string("DeleteModel: Model pushed to delete queue, but delete service timed out waiting for model to disappear from simulation");
       return true;
     }
-    {
-      //boost::recursive_mutex::scoped_lock lock(*world->GetMRMutex());
-      if (!world_->GetModel(req.model_name)) break;
-    }
-    ROS_DEBUG("Waiting for model deletion (%s)",req.model_name.c_str());
+    if (!world_->GetModel(req.model_name)) break;
+    ROS_DEBUG_THROTTLE(5, "Waiting for model deletion (%s)",req.model_name.c_str());
     usleep(1000);
+    sleeptime += 0.01;
   }
 
   // set result
@@ -1642,43 +1646,43 @@ bool GazeboRosApiPlugin::applyBodyWrench(gazebo_msgs::ApplyBodyWrench::Request &
     //        into the reference frame of the body
     //        first, translate by reference point to the body frame
     gazebo::math::Pose target_to_reference = frame->GetWorldPose() - body->GetWorldPose();
-    ROS_DEBUG("reference frame for applied wrench: [%f %f %f, %f %f %f]-[%f %f %f, %f %f %f]=[%f %f %f, %f %f %f]",
-              body->GetWorldPose().pos.x,
-              body->GetWorldPose().pos.y,
-              body->GetWorldPose().pos.z,
-              body->GetWorldPose().rot.GetAsEuler().x,
-              body->GetWorldPose().rot.GetAsEuler().y,
-              body->GetWorldPose().rot.GetAsEuler().z,
-              frame->GetWorldPose().pos.x,
-              frame->GetWorldPose().pos.y,
-              frame->GetWorldPose().pos.z,
-              frame->GetWorldPose().rot.GetAsEuler().x,
-              frame->GetWorldPose().rot.GetAsEuler().y,
-              frame->GetWorldPose().rot.GetAsEuler().z,
-              target_to_reference.pos.x,
-              target_to_reference.pos.y,
-              target_to_reference.pos.z,
-              target_to_reference.rot.GetAsEuler().x,
-              target_to_reference.rot.GetAsEuler().y,
-              target_to_reference.rot.GetAsEuler().z
-              );
+    // ROS_DEBUG("reference frame for applied wrench: [%f %f %f, %f %f %f]-[%f %f %f, %f %f %f]=[%f %f %f, %f %f %f]",
+    //           body->GetWorldPose().pos.x,
+    //           body->GetWorldPose().pos.y,
+    //           body->GetWorldPose().pos.z,
+    //           body->GetWorldPose().rot.GetAsEuler().x,
+    //           body->GetWorldPose().rot.GetAsEuler().y,
+    //           body->GetWorldPose().rot.GetAsEuler().z,
+    //           frame->GetWorldPose().pos.x,
+    //           frame->GetWorldPose().pos.y,
+    //           frame->GetWorldPose().pos.z,
+    //           frame->GetWorldPose().rot.GetAsEuler().x,
+    //           frame->GetWorldPose().rot.GetAsEuler().y,
+    //           frame->GetWorldPose().rot.GetAsEuler().z,
+    //           target_to_reference.pos.x,
+    //           target_to_reference.pos.y,
+    //           target_to_reference.pos.z,
+    //           target_to_reference.rot.GetAsEuler().x,
+    //           target_to_reference.rot.GetAsEuler().y,
+    //           target_to_reference.rot.GetAsEuler().z
+    //           );
     transformWrench(target_force, target_torque, reference_force, reference_torque, target_to_reference);
-    ROS_ERROR("wrench defined as [%s]:[%f %f %f, %f %f %f] --> applied as [%s]:[%f %f %f, %f %f %f]",
-              frame->GetName().c_str(),
-              reference_force.x,
-              reference_force.y,
-              reference_force.z,
-              reference_torque.x,
-              reference_torque.y,
-              reference_torque.z,
-              body->GetName().c_str(),
-              target_force.x,
-              target_force.y,
-              target_force.z,
-              target_torque.x,
-              target_torque.y,
-              target_torque.z
-              );
+    // ROS_ERROR("wrench defined as [%s]:[%f %f %f, %f %f %f] --> applied as [%s]:[%f %f %f, %f %f %f]",
+    //           frame->GetName().c_str(),
+    //           reference_force.x,
+    //           reference_force.y,
+    //           reference_force.z,
+    //           reference_torque.x,
+    //           reference_torque.y,
+    //           reference_torque.z,
+    //           body->GetName().c_str(),
+    //           target_force.x,
+    //           target_force.y,
+    //           target_force.z,
+    //           target_torque.x,
+    //           target_torque.y,
+    //           target_torque.z
+    //           );
 
   }
   else if (req.reference_frame == "" || req.reference_frame == "world" || req.reference_frame == "map" || req.reference_frame == "/map")
@@ -2263,7 +2267,7 @@ bool GazeboRosApiPlugin::spawnAndConform(TiXmlDocument &gazebo_model_xml, std::s
   std::ostringstream stream;
   stream << gazebo_model_xml;
   std::string gazebo_model_xml_string = stream.str();
-  ROS_DEBUG("Gazebo Model XML\n\n%s\n\n ",gazebo_model_xml_string.c_str());
+  // ROS_DEBUG("Gazebo Model XML\n\n%s\n\n ",gazebo_model_xml_string.c_str());
 
   // publish to factory topic
   gazebo::msgs::Factory msg;

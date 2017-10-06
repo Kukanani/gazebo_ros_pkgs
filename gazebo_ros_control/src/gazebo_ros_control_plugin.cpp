@@ -57,7 +57,7 @@ GazeboRosControlPlugin::~GazeboRosControlPlugin()
 // Overloaded Gazebo entry point
 void GazeboRosControlPlugin::Load(gazebo::physics::ModelPtr parent, sdf::ElementPtr sdf)
 {
-  ROS_INFO_STREAM_NAMED("gazebo_ros_control","Loading gazebo_ros_control plugin");
+  ROS_DEBUG_STREAM_NAMED("gazebo_ros_control","Loading gazebo_ros_control plugin");
 
 
   // Save pointers to the model
@@ -195,7 +195,7 @@ void GazeboRosControlPlugin::Load(gazebo::physics::ModelPtr parent, sdf::Element
     ROS_FATAL_STREAM_NAMED("gazebo_ros_control","Failed to create robot simulation interface loader: "<<ex.what());
   }
 
-  ROS_INFO_NAMED("gazebo_ros_control", "Loaded gazebo_ros_control.");
+  ROS_DEBUG_NAMED("gazebo_ros_control", "Loaded gazebo_ros_control.");
 }
 
 // Called by the world update start event
