@@ -44,6 +44,25 @@ class GazeboInterface:
             rospy.logerr("couldn't unpause physics: " + str(e))
             return
 
+    def get_model_state(self, model_name, ns=None):
+        """
+        Get the state of a model in the world
+        :param model_name: name of the model for which to get the state
+        :return: a gazebo_msgs/ModelState message with the object's information.
+        """
+        if ns is None:
+            ns = self.gazebo_namespace
+        rospy.wait_for_service(ns + '/get_model_state')
+        try:
+            get_model_state = rospy.ServiceProxy(ns + '/get_model_state',
+                                                 GetModelState)
+            state = get_model_state(model_name=model_name)
+        except rospy.ServiceException as e:
+            rospy.logerr(
+                "couldn't get model state " + model_name + ": " + str(e))
+            return None
+        return state
+
     def set_model_state(self, model_name, xyz=None, quat=None, lin_vel=None,
                         ang_vel=None, ns=None):
         """
